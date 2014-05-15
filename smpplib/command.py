@@ -24,6 +24,7 @@
 
 import struct
 import logging
+import six
 
 from . import pdu
 from . import exceptions
@@ -118,7 +119,7 @@ class Command(pdu.PDU):
         if hasattr(self, 'prep') and callable(self.prep):
             self.prep()
 
-        body = ''
+        body = six.b('')
 
         for field in self.params_order:
             #print field
@@ -148,7 +149,7 @@ class Command(pdu.PDU):
                     value = self._generate_ostring(field)
                     if value:
                         body += value
-            #print value
+
         return body
 
     def _generate_opt_header(self, field):
@@ -161,10 +162,11 @@ class Command(pdu.PDU):
 
         fmt = self._pack_format(field)
         data = getattr(self, field)
+
         if data:
             return struct.pack(fmt, data)
         else:
-            return chr(0)  # null terminator
+            return six.b(chr(0))  # null terminator
 
     def _generate_string(self, field):
         """Generate string value"""
@@ -175,23 +177,23 @@ class Command(pdu.PDU):
             size = self.params[field].size
             value = field_value.ljust(size, chr(0))
         elif hasattr(self.params[field], 'max'):
-            if len(field_value or '') > self.params[field].max:
+            if len(str(field_value) or '') > self.params[field].max:
                 field_value = field_value[0:self.params[field].max - 1]
 
             if field_value:
-                value = field_value + chr(0)
+                value = str(field_value) + chr(0)
             else:
                 value = chr(0)
 
         setattr(self, field, field_value)
-        return value
+        return six.b(value)
 
     def _generate_ostring(self, field):
         """Generate octet string value (no null terminator)"""
 
         value = getattr(self, field)
         if value:
-            return value
+            return six.b(value)
         else:
             return None  # chr(0)
 
@@ -218,11 +220,11 @@ class Command(pdu.PDU):
             fvalue = field_value.ljust(size, chr(0))
             value = struct.pack(">HH", field_code, size) + fvalue
         elif hasattr(self.params[field], 'max'):
-            if len(field_value or '') > self.params[field].max:
+            if len(str(field_value) or '') > self.params[field].max:
                 field_value = field_value[0:self.params[field].max - 1]
 
             if field_value:
-                field_length = len(field_value)
+                field_length = len(str(field_value))
                 fvalue = field_value + chr(0)
                 value = struct.pack(">HH", field_code, field_length) + fvalue
                 #print binascii.b2a_hex(value)
@@ -241,7 +243,7 @@ class Command(pdu.PDU):
 
         value = None
         if field_value:
-            field_length = len(field_value)
+            field_length = len(str(field_value))
             value = struct.pack(">HH", field_code, field_length) + field_value
             #print binascii.b2a_hex(value)
         return value
@@ -275,7 +277,7 @@ class Command(pdu.PDU):
         """Parse variable-length string from a PDU.
         Return (data, pos) tuple."""
 
-        end = data.find(chr(0), pos)
+        end = data.find(six.b(chr(0)), pos)
         length = end - pos
 
         field_value = data[pos:pos + length]
@@ -309,7 +311,7 @@ class Command(pdu.PDU):
         """Parse data into the object structure"""
 
         pos = 0
-        dlen = len(data)
+        dlen = len(str(data))
 
         for field in self.params_order:
             param = self.params[field]
@@ -336,33 +338,14 @@ class Command(pdu.PDU):
             * value (variable, <length> bytes)
         """
 
-        #print binascii.b2a_hex(data)
-        #print len(data)
         dlen = len(data)
         pos = 0
 
         while pos < dlen:
-            #print pos
-            #unpacked_data1,unpacked_data2 = struct.unpack('2B',
-            #     data[pos:pos+2])
-            #pack = struct.pack(unpacked_data2,unpacked_data1)
-            #unpacked_data = struct.unpack('H', pack)
             unpacked_data = struct.unpack('>H', data[pos:pos + 2])
             type_code = int(''.join(map(str, unpacked_data)))
 
-            #print type_code
-            #field=None
             field = get_optional_name(type_code)
-            #try:
-            #    field = \
-            #        optional_params.keys()[\
-            #            optional_params.values().index(type_code)]
-
-            #except ValueError:
-            #    raise ValueError("Type '0x%x' not found" % type_code)
-                #print ("Type '0x%x' not found" % type_code)
-
-            #if field != None:
             pos += 2
 
             length = int(''.join(map(str, struct.unpack('!H',
