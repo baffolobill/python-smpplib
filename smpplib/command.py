@@ -311,7 +311,7 @@ class Command(pdu.PDU):
         """Parse data into the object structure"""
 
         pos = 0
-        dlen = len(str(data))
+        dlen = len(data)
 
         for field in self.params_order:
             param = self.params[field]
