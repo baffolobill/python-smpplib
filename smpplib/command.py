@@ -193,7 +193,7 @@ class Command(pdu.PDU):
 
         value = getattr(self, field)
         if value:
-            return value
+            return value if isinstance(value, bytes) else six.b(value)
         else:
             return None  # chr(0)
 
